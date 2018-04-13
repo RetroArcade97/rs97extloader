@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+mydir="$(cd "$(dirname $0)" && pwd)"
+export PATH=$PATH:$mydir
+
+plash="$mydir/data/plash -F$mydir/data/font.ttf -f$mydir/data/red.png"
+rootdev=mmcblk0p1
+
+if [ ! -f $mydir/rootfs-backup.tar.gz ] ; then
+  $plash -d0 -m"Missing backup archive"
+  exit
+fi
+
+# ADD CONFIRMATION
+msg=$($plash -d0 -m"Restore... press A to continue")
+[ x"$msg" != x"key_lctrl confirm btn_a" ] && exit
+
+(
+  exec 2>&1
+  success=false
+  set -x
+
+  # Unpack backup
+  bsize=$(awk '$4 == "'$rootdev'" { print$3}' /proc/partitions)
+  if dd if=/dev/zero of=$mydir/rootfs.img bs=1024 count=$bsize ; then
+    if mkdir -p /tmp/work.$$ ; then
+      if losetup /dev/loop0 $mydir/rootfs.img ; then
+
+	if (mkfs.ext3 -L imgfs /dev/loop0 && mount -t ext3 /dev/loop0 /tmp/work.$$) ; then
+	  if tar -zxvf $mydir/rootfs-backup.tar.gz -C /tmp/work.$$ ; then
+	    # Create working structure
+	    if mount -o remount,rw / ; then
+	      if mkdir /tmp/bind.$$ ; then
+		if mount -o bind / /tmp/bind.$$ ; then
+
+		  # Copy everything...
+		  rsync -avz --delete /tmp/work.$$/ /tmp/bind.$$ && success=true
+		  # We don't use tar directly because tar only overwrites (i.e.
+		  # doesn't change files/symlink changes, for example).
+		  # So we unpack to an actual filesystem and let rsync compare
+		  # the restoration file systems to what is already.
+		  # We also do the changes in mount bind so that rsync will not
+		  # go across file systems.
+
+		  # Clean-up Create working structure
+		  umount /tmp/bind.$$
+		fi
+		rmdir /tmp/bind.$$
+	      fi
+	      mount -o remount,ro /
+	    fi
+
+	    # Clean-up: unpack backup
+	  fi
+	  umount /tmp/work.$$
+	fi
+
+	losetup -d /dev/loop0
+      fi
+      rmdir /tmp/work.$$
+    fi
+    rm -f $mydir/rootfs.img
+  fi
+
+  set +x
+  if $success ; then
+    exec 1>&- 2>&-
+    sync;sync;sync
+    reboot
+  else
+    echo "FAILED!"
+  fi
+  
+) | tee $mydir/restorelog.txt | $plash -d0 -i

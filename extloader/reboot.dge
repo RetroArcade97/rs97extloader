@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+mydir="$(cd "$(dirname $0)" && pwd)"
+export PATH=$PATH:$mydir
+
+plash="$mydir/data/plash -F$mydir/data/font.ttf -f$mydir/data/red.png"
+
+msg=$($plash -d0 -m"Reboot... press A to continue")
+[ x"$msg" != x"key_lctrl confirm btn_a" ] && exit
+reboot

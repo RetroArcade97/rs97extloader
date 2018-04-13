@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+mydir="$(cd "$(dirname $0)" && pwd)"
+export PATH=$PATH:$mydir
+
+payload=$mydir/files/extloader.sh
+init=/sbin/init
+plash="$mydir/data/plash -F$mydir/data/font.ttf -f$mydir/data/orange.png"
+
+msg=$($plash -d0 -m"INSTALL... press A to continue")
+[ x"$msg" != x"key_lctrl confirm btn_a" ] && exit
+
+ckdev() {
+  local root="$1" name="$2" type="$3" major="$4" minor="$5"
+  [ -e $root/dev/$name ] && return 0
+  mknod $root/dev/$name $type $major $minor
+  return $?
+}
+
+(
+  exec 2>&1
+  result="FAILED"
+  set -x
+
+  if mount -o remount,rw / ; then
+    # We remove this for clarity... ignored by the system...
+    [ -L /linuxrc ] && mv /linuxrc /linuxrc.old
+    [ -x /linuxrc ] && rm -f /linuxrc
+
+    if (
+      [ ! -L $init ] && exit 0
+      mv $init $init.old
+      exit $?
+    ) ; then
+      failed=false
+      # Make sure the rootfs has the minimum device nodes...
+      if mkdir /tmp/bindme.$$ ; then
+	if mount -o bind / /tmp/bindme.$$ ; then
+	  for dev in "null c 1 3" "kmsg c 1 11" "event0 c 13 64" \
+			"fb0 c 29 0" "mmcblk1p1 b 179 9" \
+			"loop0 b 7 0" "loop0 b 7 1" "loop0 b 7 2" "loop0 b 7 3" "loop0 b 7 4"
+	  do
+	    ckdev /tmp/bindme.$$ $dev || failed=true
+	  done
+	  umount /tmp/bindme.$$
+        fi
+        rmdir /tmp/bindme.$$
+      fi
+
+      if ( rsync -avz "$payload" $init && chmod 755 $init ) ; then
+	if $failed ; then
+	  result="PARTIAL, mknod /dev"
+	else
+	  result="SUCCESS"
+	fi
+      else
+        if [ -L $init.old ] ; then
+	  rm -f $init
+	  mv $init.old $init
+	fi
+      fi
+      
+    fi
+    mount -o remount,ro /
+  fi
+  set +x
+  echo "$result"
+) | tee $mydir/instlog.txt | $plash -d0 -i
+

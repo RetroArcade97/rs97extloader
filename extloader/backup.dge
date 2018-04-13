@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+mydir="$(cd "$(dirname $0)" && pwd)"
+export PATH=$PATH:$mydir
+
+plash="$mydir/data/plash -F$mydir/data/font.ttf -f$mydir/data/blue.png"
+(
+  exec 2>&1
+  set -x
+
+  mkdir /tmp/bind
+  mount -o bind / /tmp/bind
+  # We do this bind trick so that we can tar the entire tree
+  # without going accross file systems...
+
+  tar -zcvf $mydir/rootfs-backup.tar.gz -C /tmp/bind .
+  umount /tmp/bind
+  echo 'DONE'
+) | tee $mydir/backuplog.txt | $plash -d0 -i
