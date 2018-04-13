@@ -89,5 +89,6 @@ To convert an image is quite simple:
 [rs97]: http://rs97.wikia.com/wiki/Main_Page
 [splash]: https://github.com/steward-fu/gh_retrogame_emulator/splash
 [extloader]: https://github.com/HyperTechnology5/rs97extloader
-[cfw][https://jutleys.wixsite.com/retrogamers97-90]
+[cfw]: https://jutleys.wixsite.com/retrogamers97-90
+
 
