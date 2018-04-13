@@ -1,5 +1,20 @@
-main: main.cpp
-	mipsel-linux-gcc main.cpp -o splash -lSDL_image -lSDL -I/home/steward/Github/gh_retrogame_toolchain/mipsel-linux-gcc/usr/mipsel-buildroot-linux-uclibc/sysroot/usr/include/SDL
-	#gcc main.cpp -o splash -lSDL_image -lSDL -I/usr/include/SDL
+SDL_INC=$(RETROGAME_INCLUDE)/SDL
+CROSS=mipsel-linux-
+
+all:
+	@echo "Available targets"
+	@echo "   clean - clean things"
+	@echo "   plash - build plash"
+	@echo ""
+	@if [ -z "$(RETROGAME_INCLUDE)" ] ; then \
+		echo "You need to define RETROGAME_INCLUDE to point to your"; \
+		echo "Toolchain include directory"; \
+	fi
+	@type $(CROSS)gcc || echo "No suitable cross compiler"
+
+
+plash: main.cpp
+	$(CROSS)gcc -s main.cpp -o plash -lSDL_image -lSDL_ttf -lSDL -I$(SDL_INC)
+
 clean:
-	rm -rf splash
+	rm -rf plash
