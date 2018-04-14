@@ -1,0 +1,162 @@
+#!/bin/sh
+#
+# This script is used to convert RS97 images to a different format
+#
+if [ x"$1" = x"-s" ] ; then
+  shift
+  exec script -c "$0 $*" typescript.$(date +%F.%H.%M.%S)
+elif [ x"$1" = x"-x" ] ; then
+  shift
+  set -x
+fi
+
+set -euf -o pipefail
+die() {
+  local rc="$1" ; shift
+  echo "$@" 1>&2
+  exit $rc
+}
+
+bgsudo=""
+dosu() {
+  if [ -z "$bgsudo" ] ; then
+    sudo true
+    ( set +x ; while : ; do sudo true ; sleep 30 ; done) &
+    bgsudo=$!
+  fi
+  sudo "$@"
+}
+
+autoexec() {
+  # This function sets-up the runtime environment for opendingux
+  # external sd card remix...
+  losetup /dev/loop0 $mydir/rootfs.dat;
+  mount -t ext3 -o ro /dev/loop0 /root;
+  mount -o bind /mnt /root/mnt/vfat;
+  cd /root;
+  exec  ./usr/sbin/chroot . ./sbin/init
+}
+
+
+dkpartx=""
+remix_init_rdloops() {
+  mkdir -p $workdir/tmp
+
+  dkpartx="$1"
+  dosu true # We do this here because we run kpartx in a subshell...
+  mountdevs=$(dosu kpartx -v -a "$1" | awk '$1 == "add" && $2 == "map" { print $3,$6}')
+  [ -z "$mountdevs" ] && die 4 "Unable to map loop device"
+  (
+    set - $mountdevs
+    [ $# -ne 8 ] && die 5 "Only $# partitions found"
+    mkdir -p $workdir/p1 ; dosu mount -r /dev/mapper/$1 $workdir/p1
+    mkdir -p $workdir/p3 ; dosu mount -r /dev/mapper/$5 $workdir/p3
+    mkdir -p $workdir/p4 ; dosu mount -r /dev/mapper/$7 $workdir/p4
+
+    truncate -s $(expr $2 / 2)K $workdir/tmp/rootfs.dat
+    truncate -s $(expr $4 / 2)K $workdir/tmp/swap.dat
+  )
+  mkswap $workdir/tmp/swap.dat
+  mkfs.ext3 -F -L rootfs $workdir/tmp/rootfs.dat
+}
+
+wrloop=""
+remix_init_wrloops() {
+  mkdir -p $workdir/rootfs
+  dosu mount -o loop $workdir/tmp/rootfs.dat $workdir/rootfs && wrloop=true
+}
+
+remix_clean_up() {
+  local i j k
+  set +euf
+  [ -n "$wrloop" ] && dosu umount "$workdir/rootfs"	
+  if [ -n "$mountdevs" ] ; then
+    dosu umount $workdir/p1
+    dosu umount $workdir/p3
+    dosu umount $workdir/p4
+  fi
+  [ -n "$dkpartx" ] && dosu kpartx -v -d "$dkpartx"
+  if [ -n "$bgsudo" ] ; then
+    k=""
+    for i in $(pidof sleep)
+    do
+      j=$(awk '$1 == "PPid:" {print $2}' /proc/$i/status)
+      [ -x "$j" ] && continue
+      [ "$j" -eq "$bgsudo" ] && k="$k $i"
+    done
+    kill $bgsudo
+    kill $k
+  fi
+  [ -n "$workdir" ] && rm -rf "$workdir"
+}
+
+workdir=""
+op_remix_cfw() {
+  [ $# -ne 2 ] && die 1 "Usage: $0 patch <input> <output>"
+  local input="$1" output="$2"
+  [ ! -r "$input" ] && die 2 "$input: not found/not readable"
+  [ -e "$output" ] && die 3 "$output: already exists"
+  output=$(readlink -f "$output")
+
+  trap remix_clean_up EXIT
+  workdir=$(mktemp -d -p "$(dirname "$output")")
+
+  # Initialize loop devices...
+  remix_init_rdloops "$input"
+  remix_init_wrloops
+
+  # Copy partition 1
+  dosu cp -a "$workdir/p1/." "$workdir/rootfs/."
+
+  (
+    # Edit root filesystem
+    cd "$workdir/rootfs"
+    dosu sed \
+      -i \
+      -e 's!::sysinit:/bin/mount /dev/mmcblk0p3 /mnt/game -t vfat -o rw,utf8!!' \
+      -e 's!::sysinit:/bin/mount /dev/mmcblk0p4 /mnt/int_sd -t vfat -o rw,utf8!!' \
+      etc/inittab
+    dosu sed \
+      -i \
+      -e 's!swapon /dev/mmcblk0p2!swapon /mnt/vfat/swap.dat!' \
+      etc/main
+  )
+  (
+    # Edit mount point
+    cd "$workdir/rootfs/mnt"
+    dosu rmdir game int_sd
+    dosu mkdir vfat
+    dosu ln -s vfat/game game
+    dosu ln -s vfat/int_sd int_sd
+  )
+  echo "Copying p3"
+  cp -a "$workdir/p3" "$workdir/tmp/game"
+  echo "Copying p4"
+  cp -a "$workdir/p4" "$workdir/tmp/int_sd"
+  echo "Creating autoexec.sh"
+  (
+    echo '#!/bin/sh'
+    echo 'mydir=$(cd $(dirname $0) && pwd)'
+    declare -f autoexec
+    echo 'autoexec "$@"'
+  ) > "$workdir/tmp/autoexec.sh"
+  chmod 755 "$workdir/tmp/autoexec.sh"
+  (
+    cd "$workdir/tmp"
+    zip -r "$output" $(find . -mindepth 1 -maxdepth 1 -printf '%f\n')
+  )
+}
+
+op_patch() {
+  [ $# -ne 2 ] && die 1 "Usage: $0 patch <input> <output>"
+  local input="$1" output="$2"
+  [ ! -r "$input" ] && die 2 "$input: not found/not readable"
+  [ -e "$output" ] && die 3 "$output: already exists"
+  sed 's/mmcblk0/mmcblk1/' < "$input" > "$output"
+}
+
+[ $# -eq 0 ] && die 1 "Usage: $0 <op> ...options..."
+
+op="$1" ; shift
+
+op_"$op" "$@"

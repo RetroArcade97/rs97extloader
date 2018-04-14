@@ -2,3 +2,5 @@ plash/plash
 *.zip
 *.img
 *.backup
+*.7z
+typescript.*
