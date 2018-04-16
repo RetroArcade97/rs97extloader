@@ -17,6 +17,19 @@ ckdev() {
   return $?
 }
 
+safecp() {
+  local payload="$1" init="$2"
+
+  if type rsync ; then
+    # We prefer to use rsync
+    rsync -avz "$payload" $init && chmod 755 $init && return 0
+    return 1
+  fi
+  # Fallback to cp if rsync not found...
+  cp -a "$payload" $init && chmod 755 $init && return 0
+  return 1
+}
+
 (
   exec 2>&1
   result="FAILED"
@@ -35,9 +48,10 @@ ckdev() {
       failed=false
       # Make sure the rootfs has the minimum device nodes...
       if mkdir /tmp/bindme.$$ ; then
-	if mount -o bind / /tmp/bindme.$$ ; then
+	if mount -o bind / /tmp/bindme.$$ ; then	
 	  for dev in "null c 1 3" "kmsg c 1 11" "event0 c 13 64" \
-			"fb0 c 29 0" "mmcblk1p1 b 179 9" \
+			"fb0 c 29 0" "mmcblk1p1 b 179 9" "mem c 1 1" \
+			"tty c 5 0" "tty0 c 4 0" "tty1 c 4 1" "tty2 c 4 2" "tty3 c 4 3" "tty3 c 4 4" \
 			"loop0 b 7 0" "loop0 b 7 1" "loop0 b 7 2" "loop0 b 7 3" "loop0 b 7 4"
 	  do
 	    ckdev /tmp/bindme.$$ $dev || failed=true
@@ -46,20 +60,18 @@ ckdev() {
         fi
         rmdir /tmp/bindme.$$
       fi
-
-      if ( rsync -avz "$payload" $init && chmod 755 $init ) ; then
+      if safecp "$payload" $init ; then
 	if $failed ; then
 	  result="PARTIAL, mknod /dev"
 	else
 	  result="SUCCESS"
 	fi
       else
-        if [ -L $init.old ] ; then
+	if [ -L $init.old ] ; then
 	  rm -f $init
 	  mv $init.old $init
 	fi
       fi
-      
     fi
     mount -o remount,ro /
   fi

@@ -134,6 +134,9 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 
 ## Changelog
 
+- 0.91 : Update
+  - Added addition device nodes (for implementing splash screens)\
+  - Fixed installation with opendingux
 - 0.90 : First public release
 
 ## TODO
