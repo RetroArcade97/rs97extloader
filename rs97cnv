@@ -155,8 +155,17 @@ op_patch() {
   sed 's/mmcblk0/mmcblk1/' < "$input" > "$output"
 }
 
-[ $# -eq 0 ] && die 1 "Usage: $0 <op> ...options..."
-
+if [ $# -eq 0 ] ; then
+  echo "Usage: $0 [-s] [-x] <op> ...options..."
+  echo "Available op's:"
+  declare -F | grep  '^declare -f op_' | sed 's/declare -f op_/	/'
+  echo "Most op's accept: $0 op input_file output_file"
+  echo 'Global options:'
+  echo '	-s : Generate typescript (if specified, must always be the first option)'
+  echo '	-x : show executed commands'
+  exit
+fi
+  
 op="$1" ; shift
 
 op_"$op" "$@"
