@@ -16,6 +16,7 @@ int main(int argc, char* argv[])
   const char *txt = NULL;
   bool quit = false;
   bool instream = false;
+  Uint32 start;
   TTF_Font *ttf = NULL;
   //The event structure that will be used
   SDL_Event event;
@@ -28,15 +29,18 @@ int main(int argc, char* argv[])
 	case 'd':
 	  delay = atoi(argv[i]+2);
 	  break;
+	case 'D':
+	  delay = -atoi(argv[i]+2);
+	  break;
 	case 'f':
-          splash_img = argv[i]+2;
+	  splash_img = argv[i][2] == '=' ? argv[i]+3 : argv[i]+2;
 	  break;
 	case 'm':
 	  txt = argv[i]+2;
 	  instream = false;
 	  break;
 	case 'F':
-	  font = argv[i]+2;
+	  font = argv[i][2] == '=' ? argv[i]+3 : argv[i]+2;
 	  break;
 	case 'i':
 	  instream = true;
@@ -109,6 +113,7 @@ int main(int argc, char* argv[])
 	  offset.x = 10;
 	  offset.y = 30;
 	  SDL_BlitSurface(msg,NULL,layer,&offset);
+	  SDL_FreeSurface(msg);
         }
       }
     }
@@ -140,11 +145,12 @@ int main(int argc, char* argv[])
       break;
     }
   }
-  if (delay) {
+  if (delay > 0) {
     fprintf(stderr,"Wait for %d\n",delay);
     SDL_Delay(delay);
   } else {
     fprintf(stderr,"Entering event loop: %d\n",quit);
+    start = SDL_GetTicks();
     while (!quit) {
       while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -200,6 +206,11 @@ int main(int argc, char* argv[])
 	  break;
 	}
       }
+      if (delay < 0) {
+	//fprintf(stderr,"Timer: %d (%d)\n",SDL_GetTicks() - start,-delay);
+	if (SDL_GetTicks() - start > -delay) quit = true;
+      }
+
     }
   }
 

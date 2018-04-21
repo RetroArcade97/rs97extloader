@@ -119,6 +119,8 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 - `extloader` will make it look to the firmware that the external sdcard
   is the internal sdcard.  So external sdcard will look empty, while
   all your content would be visible from the "internal" sdcard.
+- It is not possible to boot a new kernel through `kexec` system
+  call because it is not implemented on the stock kernel.
 
 ## FAQ
 
@@ -141,18 +143,33 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 
 ## TODO
 
-- Boot a new kernel through kexec
-- Test if the installer will work on top of OpenDingux
 - Internal micro image option for 2GB sdcards
-- Splash screen
+- $plash screen
+- Check if int-sd VFAT partition has `autoexec.sh`
 - Detect if it is a firmware image that boots into mmcblk0 and
   patch it automatically.
+  - splash confirmation
+  - progress screen?
+  - dd if=mmcblk1p1 bs=32k | sed 's/mmcblk0/mmcblk1/' | dd of=mmcblk1p1 bs=32k
+  - Create splash texts with:
+
+      width=`identify -format %w dragon.gif`; \
+      convert -background '#0008' -fill white -gravity center -size ${width}x30 \
+          caption:"Faerie Dragons love hot apple pies\!" \
+          dragon.gif +swap -gravity south -composite  anno_caption.jpg
+
+- Return script.  If autoexec.sh doesn't work we should be able to
+  exec a script back in / that umount and continues normal booting or
+  shows an error message.
+
+
 
 ## References
 
 * Original [splash][splash]
 * About the [Coolboy RS-97][rs97]
 * [OpenDingux][cfw]
+* [Forums](https://boards.dingoonity.org/ingenic-jz4760-devices/rs-97-firmware-loader/)
 
 [rs97]: http://rs97.wikia.com/wiki/Main_Page
 [splash]: https://github.com/steward-fu/gh_retrogame_emulator/splash
@@ -160,7 +177,3 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 [cfw]: https://jutleys.wixsite.com/retrogamers97-90
 [releases]: https://github.com/HyperTechnology5/rs97extloader/releases/latest
 [extloader_src]: https://github.com/HyperTechnology5/rs97extloader/blob/master/extloader/extloader.sh
-
-
-
-
