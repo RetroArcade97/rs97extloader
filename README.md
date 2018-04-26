@@ -136,6 +136,11 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 
 ## Changelog
 
+- 0.92 :
+  - Added additional files in installation
+  - plash: Added option -D
+  - added sdlmenu
+  - Create `rs97cnv` script
 - 0.91 : Update
   - Added addition device nodes (for implementing splash screens)\
   - Fixed installation with opendingux
@@ -143,24 +148,16 @@ be found in `files/extloader.sh` or on-line using [github][extloader_src].
 
 ## TODO
 
-- Internal micro image option for 2GB sdcards
-- $plash screen
-- Check if int-sd VFAT partition has `autoexec.sh`
-- Detect if it is a firmware image that boots into mmcblk0 and
-  patch it automatically.
-  - splash confirmation
-  - progress screen?
-  - dd if=mmcblk1p1 bs=32k | sed 's/mmcblk0/mmcblk1/' | dd of=mmcblk1p1 bs=32k
-  - Create splash texts with:
-
-      width=`identify -format %w dragon.gif`; \
-      convert -background '#0008' -fill white -gravity center -size ${width}x30 \
-          caption:"Faerie Dragons love hot apple pies\!" \
-          dragon.gif +swap -gravity south -composite  anno_caption.jpg
-
-- Return script.  If autoexec.sh doesn't work we should be able to
+- TEST Check if int-sd VFAT partition has `autoexec.sh`
+- TEST Return script.  If autoexec.sh doesn't work we should be able to
   exec a script back in / that umount and continues normal booting or
   shows an error message.
+- TEST Detect if it is a firmware image that boots into mmcblk0 and
+  patch it automatically.
+  - TEST splash confirmation
+  - progress screen?
+  - dd if=mmcblk1p1 bs=32k | sed 's/mmcblk0/mmcblk1/' | dd of=mmcblk1p1 bs=32k
+- Internal micro image option for 2GB sdcards
 
 
 
