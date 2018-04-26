@@ -7,8 +7,17 @@ payload=$mydir/files/extloader.sh
 init=/sbin/init
 plash="$mydir/data/plash -F$mydir/data/font.ttf -f$mydir/data/orange.png"
 
-msg=$($plash -d0 -m"INSTALL... press A to continue")
-[ x"$msg" != x"key_lctrl confirm btn_a" ] && exit
+auto=false
+
+if [ x"$1" = x"auto" ] ; then
+  auto=true
+  shift
+fi
+
+if ! $auto ; then
+  msg=$($plash -d0 -m"INSTALL... press A to continue")
+  [ x"$msg" != x"key_lctrl confirm btn_a" ] && exit
+fi
 
 ckdev() {
   local root="$1" name="$2" type="$3" major="$4" minor="$5"
@@ -88,5 +97,5 @@ safecp() {
   fi
   set +x
   echo "$result"
-) | tee $mydir/instlog.txt | $plash -d0 -i
+) | tee $mydir/instlog.txt | $plash -d$($auto && echo 100 || echo 0) -i
 
