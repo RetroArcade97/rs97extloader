@@ -1,0 +1,6 @@
+
+Unpatched image detected!
+Press A to patch...
+Press any other key to
+boot to the internal firmware
+
