@@ -11,6 +11,8 @@ mkdir=/bin/mkdir
 sleep=/bin/sleep
 grep=/bin/grep
 chroot=/usr/sbin/chroot
+autopatch=/usr/share/plash/autopatch.sh
+intboot=/usr/share/plash/intboot.sh
 
 blkdev=/dev/mmcblk1p1
 mntdir=/mnt
@@ -36,6 +38,8 @@ run_probe() {
     probe_autoexec
     probe_chroot
     probe_patched_fw
+    probe_unpatched_fw
+    $umount $mntdir
   fi
 }
 probe() {
@@ -61,7 +65,7 @@ probe_autoexec() {
   [ -x $mntdir/autoexec.sh ] && result run_autoexec
 }
 run_autoexec() {
-  exec $mntdir/autoexec.sh
+  exec $mntdir/autoexec.sh "$@"
 }
 probe_chroot() {
   [ -x $mntdir/chroot.sh ] && result run_chroot
@@ -76,6 +80,15 @@ probe_patched_fw() {
 run_patched_fw() {
   cd $mntdir
   exec .$chroot . ./sbin/init "$@"
+}
+probe_unpatched_fw() {
+  $grep -q /dev/mmcblk1 $mntdir/etc/inittab && return
+  $grep -q /dev/mmcblk0 $mntdir/etc/inittab && result run_unpatched_fw
+}
+run_unpatched_fw() {
+  # This is not patched...
+  $umount $mntdir
+  $autopatch
 }
 
 #~ env=/usr/bin/env
@@ -97,8 +110,8 @@ run_patched_fw() {
 #~ splash_off
 
 probe_out=$(probe)
-#echo $probe_out >/dev/kmsg
+echo $probe_out >/dev/kmsg
 $probe_out
 $umount $mntdir
 
-exec /bin/busybox init "$@"
+exec $intboot "$@"
